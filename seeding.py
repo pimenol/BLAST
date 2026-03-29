@@ -14,7 +14,6 @@ for _c in b'ACGTacgt':
 
 
 def _encode_kmer(seq: bytes, pos: int, k: int) -> int:
-    """Encode a k-mer starting at pos as a 2-bit integer. Returns -1 if invalid."""
     val = 0
     for i in range(k):
         c = seq[pos + i]
@@ -25,12 +24,8 @@ def _encode_kmer(seq: bytes, pos: int, k: int) -> int:
 
 
 def build_query_kmer_index(query: bytes, k: int, matrix, threshold: int) -> tuple:
-    """Build a set of integer-encoded k-mers from the query, and a dict mapping
-    encoded k-mer -> list of query positions.
-    Returns (kmer_set, kmer_to_positions)."""
     kmer_to_positions = defaultdict(list)
-    qlen = len(query)
-    for i in range(qlen - k + 1):
+    for i in range(len(query) - k + 1):
         kmer_int = _encode_kmer(query, i, k)
         if kmer_int < 0:
             continue
@@ -43,8 +38,7 @@ def build_query_kmer_index(query: bytes, k: int, matrix, threshold: int) -> tupl
 
 
 def find_seeds(db_seq: bytes, kmer_set: set, kmer_to_positions: dict, k: int) -> list:
-    """Scan database sequence using rolling hash and find all seed hits.
-    Returns list of (db_pos, query_pos) pairs."""
+    """Returns list of (db_pos, query_pos) pairs."""
     seeds = []
     mask = (1 << (2 * k)) - 1
     current_hash = 0

@@ -1,15 +1,8 @@
-"""HSP extension: ungapped and gapped alignment."""
-
 NEG_INF = float('-inf')
 
 
 def ungapped_extend(db_seq: bytes, query: bytes, db_pos: int, q_pos: int,
                     k: int, matrix, x_drop: int = 20):
-    """Extend a seed ungapped in both directions using X-drop.
-    Returns (db_start, db_end, q_start, q_end, score) or None if score too low."""
-    db_len = len(db_seq)
-    q_len = len(query)
-
     seed_score = sum(matrix[db_seq[db_pos + i]][query[q_pos + i]] for i in range(k))
 
     # Extend right
@@ -20,7 +13,7 @@ def ungapped_extend(db_seq: bytes, query: bytes, db_pos: int, q_pos: int,
     best_db_right = db_right
     best_q_right = q_right
 
-    while db_right < db_len and q_right < q_len:
+    while db_right < len(db_seq) and q_right < len(query):
         right_score += matrix[db_seq[db_right]][query[q_right]]
         if right_score > right_best:
             right_best = right_score
@@ -58,9 +51,7 @@ def gapped_extend(db_seq: bytes, query: bytes, db_start: int, db_end: int,
                   q_start: int, q_end: int, matrix,
                   gap_open: int, gap_extend: int,
                   band_width: int = 50, x_drop: int = 50):
-    """Perform gapped extension around the ungapped HSP region.
-    Uses banded Smith-Waterman with affine gap penalties.
-    gap_open and gap_extend are positive values (applied as negatives).
+    """Uses banded Smith-Waterman with affine gap penalties.
     Returns (db_start, db_end, q_start, q_end, score)."""
 
     extend = max(db_end - db_start, q_end - q_start, band_width)
@@ -95,21 +86,17 @@ def gapped_extend(db_seq: bytes, query: bytes, db_start: int, db_end: int,
         j_end = min(n, i + band_width)
 
         for j in range(j_start, j_end + 1):
-            # Match/mismatch
             match_score = matrix[qc][d[j - 1]]
             h_diag = prev_H[j - 1] + match_score
 
-            # Gap in query (deletion): consuming db char
             e_open = prev_H[j] - gap_open - gap_extend
             e_ext = prev_E[j] - gap_extend
             curr_E[j] = max(e_open, e_ext)
 
-            # Gap in database (insertion): consuming query char
             f_open = curr_H[j - 1] - gap_open - gap_extend
             f_ext = curr_F - gap_extend
             curr_F = max(f_open, f_ext)
 
-            # Best of all
             h = max(h_diag, curr_E[j], curr_F, 0)
             curr_H[j] = h
 
@@ -131,17 +118,13 @@ def gapped_extend(db_seq: bytes, query: bytes, db_start: int, db_end: int,
 
 
 def merge_hsps(hsps: list) -> list:
-    """Merge overlapping HSPs, keeping the best score for overlapping regions."""
     if not hsps:
         return []
-    # Sort by db_start then q_start
     hsps.sort(key=lambda h: (h[0], h[2]))
     merged = [hsps[0]]
     for hsp in hsps[1:]:
         prev = merged[-1]
-        # If overlapping on both db and query ranges
         if hsp[0] < prev[1] and hsp[2] < prev[3]:
-            # Keep the one with higher score
             if hsp[4] > prev[4]:
                 merged[-1] = hsp
         else:
