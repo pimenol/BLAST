@@ -95,10 +95,9 @@ def main():
     args = parse_args()
     matrix = load_score_matrix(args.e)
 
-    print(f"Loading database from {len(args.d)} file(s)...", file=sys.stderr)
     load_start = time.time()
     db_sequences = load_database(args.d)
-    print(f"Loaded {len(db_sequences)} sequence(s), "
+    print(f"Loaded {len(db_sequences)} sequences, "
           f"{sum(len(s.seq) for s in db_sequences):,} residues in "
           f"{time.time() - load_start:.2f}s", file=sys.stderr)
 
