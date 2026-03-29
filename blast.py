@@ -1,47 +1,32 @@
 #!/usr/bin/env python3
+"""Simplified nucleotide BLAST algorithm implementation."""
 
 import argparse
 import sys
 import time
-import csv
 
+from scoring import load_score_matrix
 from index import load_database
-from seeding import build_query_kmer_index, find_seeds, filter_seeds_two_hit
+from BLAST.seeding import build_query_kmer_index, find_seeds, filter_seeds_two_hit
 from extension import ungapped_extend, gapped_extend, merge_hsps
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="BLAST")
-    parser.add_argument("-e", required=True, help="Path to score matrix in csv format")
-    parser.add_argument("-p", type=int, default=11, help="Gap open penalty (positive value, default: 11)")
-    parser.add_argument("-x", type=int, default=1, help="Gap extension penalty (positive value, default: 1)")
-    parser.add_argument("-d", nargs="+", required=True, help="list of database files in fasta format, for example, -d chr1.fasta chr2.fasta")
-    parser.add_argument("-k", type=int, default=3, help="length of the word (default: 3 for protein)")
-    parser.add_argument("-t", type=int, default=0, help="threshold on the seed score (default: 0)")
-
-    parser.add_argument("--ungapped-threshold", type=int, default=11, help="Minimum ungapped HSP score for gapped extension")
-    parser.add_argument("--two-hit-window", type=int, default=40, help="Window size for two-hit seed filter")
-    parser.add_argument("--no-two-hit", action="store_true", help="Disable two-hit filter")
-
+    parser = argparse.ArgumentParser(description="Simplified nucleotide BLAST")
+    parser.add_argument("-e", required=True, help="Path to score matrix in CSV format")
+    parser.add_argument("-p", type=int, default=5, help="Gap open penalty (positive value)")
+    parser.add_argument("-x", type=int, default=2, help="Gap extension penalty (positive value)")
+    parser.add_argument("-d", nargs="+", required=True, help="Database FASTA file(s)")
+    parser.add_argument("-k", type=int, default=11, help="Word (k-mer) length")
+    parser.add_argument("-t", type=int, default=0, help="Seed score threshold")
+    parser.add_argument("--ungapped-threshold", type=int, default=20,
+                        help="Minimum ungapped HSP score for gapped extension")
+    parser.add_argument("--two-hit-window", type=int, default=40,
+                        help="Window size for two-hit seed filter")
+    parser.add_argument("--no-two-hit", action="store_true",
+                        help="Disable two-hit filter (use single-hit seeding)")
     return parser.parse_args()
 
-def load_score_matrix(csv_path: str):
-    """Load a substitution matrix from CSV. Returns a 128x128 list-of-lists
-    where matrix[ord(a)][ord(b)] = score"""
-    matrix = [[0] * 128 for _ in range(128)]
-    with open(csv_path) as f:
-        reader = csv.reader(f)
-        header = next(reader)
-        cols = [c.strip().upper() for c in header[1:]]
-        for row in reader:
-            row_char = row[0].strip().upper()
-            for j, val in enumerate(row[1:]):
-                col_char = cols[j]
-                score = int(val.strip())
-                for rc in (row_char, row_char.lower()):
-                    for cc in (col_char, col_char.lower()):
-                        matrix[ord(rc)][ord(cc)] = score
-    return matrix
 
 def search(query_str: str, db_sequences, matrix, k: int, threshold: int,
            gap_open: int, gap_extend: int, ungapped_threshold: int,
@@ -93,12 +78,15 @@ def search(query_str: str, db_sequences, matrix, k: int, threshold: int,
 
 def main():
     args = parse_args()
+
+    print(f"Loading score matrix from {args.e}...", file=sys.stderr)
     matrix = load_score_matrix(args.e)
 
+    print(f"Loading database from {len(args.d)} file(s)...", file=sys.stderr)
     load_start = time.time()
     db_sequences = load_database(args.d)
-    print(f"Loaded {len(db_sequences)} sequences, "
-          f"{sum(len(s.seq) for s in db_sequences):,} residues in "
+    print(f"Loaded {len(db_sequences)} sequence(s), "
+          f"{sum(len(s.seq) for s in db_sequences):,} bases in "
           f"{time.time() - load_start:.2f}s", file=sys.stderr)
 
     threshold = args.t
@@ -116,7 +104,7 @@ def main():
         if not query_str:
             continue
 
-        print(f"Searching for query ({len(query_str)} residues)...", file=sys.stderr)
+        print(f"Searching for query ({len(query_str)} bp)...", file=sys.stderr)
         start_time = time.time()
 
         results = search(query_str, db_sequences, matrix, args.k, threshold,

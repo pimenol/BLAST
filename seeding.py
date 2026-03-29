@@ -2,55 +2,68 @@
 
 from collections import defaultdict
 
-# Valid amino acid characters
-_AMINO_ACIDS = set(b'ACDEFGHIKLMNPQRSTVWY')
+# 2-bit encoding: A=0, C=1, G=2, T=3
+_ENCODE = [0] * 256
+for _c, _v in zip(b'AaCcGgTt', [0, 0, 1, 1, 2, 2, 3, 3]):
+    _ENCODE[_c] = _v
 
-# Valid nucleotide characters
-_NUCLEOTIDES = set(b'ACGT')
+# Characters that are valid nucleotides
+_IS_VALID = bytearray(256)
+for _c in b'ACGTacgt':
+    _IS_VALID[_c] = 1
 
 
-def _is_valid_kmer(kmer: bytes, valid_chars: set) -> bool:
-    """Check if all characters in k-mer are valid."""
-    return all(c in valid_chars for c in kmer)
-
-
-def detect_alphabet(seq: bytes) -> set:
-    """Detect whether sequence is protein or nucleotide."""
-    upper = set(seq)
-    non_nuc = upper - _NUCLEOTIDES
-    if non_nuc:
-        return _AMINO_ACIDS
-    return _NUCLEOTIDES
+def _encode_kmer(seq: bytes, pos: int, k: int) -> int:
+    """Encode a k-mer starting at pos as a 2-bit integer. Returns -1 if invalid."""
+    val = 0
+    for i in range(k):
+        c = seq[pos + i]
+        if not _IS_VALID[c]:
+            return -1
+        val = (val << 2) | _ENCODE[c]
+    return val
 
 
 def build_query_kmer_index(query: bytes, k: int, matrix, threshold: int) -> tuple:
-    """Build a dict mapping k-mer bytes -> list of query positions.
+    """Build a set of integer-encoded k-mers from the query, and a dict mapping
+    encoded k-mer -> list of query positions.
     Returns (kmer_set, kmer_to_positions)."""
-    valid_chars = detect_alphabet(query)
     kmer_to_positions = defaultdict(list)
     qlen = len(query)
     for i in range(qlen - k + 1):
-        kmer = query[i:i + k]
-        if not _is_valid_kmer(kmer, valid_chars):
+        kmer_int = _encode_kmer(query, i, k)
+        if kmer_int < 0:
             continue
         score = sum(matrix[query[i + j]][query[i + j]] for j in range(k))
         if score >= threshold:
-            kmer_to_positions[kmer].append(i)
+            kmer_to_positions[kmer_int].append(i)
 
     kmer_set = set(kmer_to_positions)
     return kmer_set, kmer_to_positions
 
 
 def find_seeds(db_seq: bytes, kmer_set: set, kmer_to_positions: dict, k: int) -> list:
-    """Scan database sequence for matching k-mers.
+    """Scan database sequence using rolling hash and find all seed hits.
     Returns list of (db_pos, query_pos) pairs."""
     seeds = []
-    db_len = len(db_seq)
-    for i in range(db_len - k + 1):
-        kmer = db_seq[i:i + k]
-        if kmer in kmer_set:
-            for q_pos in kmer_to_positions[kmer]:
-                seeds.append((i, q_pos))
+    mask = (1 << (2 * k)) - 1
+    current_hash = 0
+    valid_count = 0
+
+    for i in range(len(db_seq)):
+        c = db_seq[i]
+        if _IS_VALID[c]:
+            current_hash = ((current_hash << 2) | _ENCODE[c]) & mask
+            valid_count += 1
+        else:
+            valid_count = 0
+            current_hash = 0
+
+        if valid_count >= k and current_hash in kmer_set:
+            pos = i - k + 1
+            for q_pos in kmer_to_positions[current_hash]:
+                seeds.append((pos, q_pos))
+
     return seeds
 
 
