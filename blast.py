@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Simplified nucleotide BLAST algorithm implementation.
-
-Pipeline:
-  1. Parse query (from -q file or stdin)
-  2. Load database FASTA sequences
-  3. Build k-mer index from query words + neighborhood words scoring >= T
-  4. Scan database for seed hits (two-hit filter by default)
-  5. Ungapped extension with X-drop
-  6. Gapped extension (banded Smith-Waterman with affine gaps)
-  7. Report top hits sorted by score
-"""
 
 import argparse
 import sys
@@ -60,8 +49,6 @@ def load_database(fasta_paths: list) -> list:
 
 
 def load_score_matrix(csv_path: str):
-    """Load a substitution matrix from CSV.
-    Returns a 128x128 list-of-lists where matrix[ord(a)][ord(b)] = score."""
     matrix = [[0] * 128 for _ in range(128)]
     with open(csv_path) as f:
         reader = csv.reader(f)
@@ -79,17 +66,14 @@ def load_score_matrix(csv_path: str):
 
 
 def read_query(query_path):
-    """Read query from a file. Supports FASTA or raw sequence."""
     with open(query_path) as f:
         content = f.read().strip()
     if content.startswith('>'):
-        # FASTA format — may have multiple sequences
         queries = []
         for record in SeqIO.parse(query_path, "fasta"):
             queries.append((record.id, str(record.seq).strip()))
         return queries
     else:
-        # Raw sequence — strip whitespace/newlines
         seq = ''.join(content.split())
         return [("query", seq)]
 
