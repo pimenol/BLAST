@@ -67,6 +67,8 @@ def gapped_extend(db_seq: bytes, query: bytes, db_start: int, db_end: int,
     if m == 0 or n == 0:
         return (db_start, db_end, q_start, q_end, 0)
 
+    diag_offset = (db_start - aln_db_start) - (q_start - aln_q_start)
+
     prev_H = [0] * (n + 1)
     prev_E = [NEG_INF] * (n + 1)
     curr_H = [0] * (n + 1)
@@ -81,9 +83,10 @@ def gapped_extend(db_seq: bytes, query: bytes, db_start: int, db_end: int,
         curr_F = NEG_INF
         qc = q[i - 1]
 
-        # Band limits
-        j_start = max(1, i - band_width)
-        j_end = min(n, i + band_width)
+        # Band limits centered on the expected diagonal
+        center = i + diag_offset
+        j_start = max(1, center - band_width)
+        j_end = min(n, center + band_width)
 
         for j in range(j_start, j_end + 1):
             match_score = matrix[qc][d[j - 1]]
