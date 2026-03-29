@@ -1,9 +1,5 @@
 # BLAST Implementation Report
 
-A simplified nucleotide BLAST algorithm in Python - seeding, ungapped extension, gapped extension - that correctly identifies the HBA1 hemoglobin gene against a multi-chromosome human database and handles edge cases including N-containing sequences and queries shorter than the seed word.
-
----
-
 ## Code Structure
 
 Three files carry the implementation:
@@ -14,7 +10,6 @@ Three files carry the implementation:
 
 Supporting files: `blast.sh`, `compile.sh`.
 
----
 
 ## Usage and Arguments
 
@@ -36,7 +31,6 @@ The program is launched via `blast.sh`.
 
 For each query, the program outputs: database filename, match range in the database (1-based), match range in the query (1-based), alignment score, and search time in seconds.
 
----
 
 ## Algorithm
 
@@ -50,7 +44,6 @@ For each query, the program outputs: database filename, match range in the datab
 
 For each query row i, only database columns within [i + diag_offset − W, i + diag_offset + W] are computed (W = 50 by default). This reduces DP computation from O(m × n) to O(m × 100) - on a 250 Mbp chromosome, that difference is what keeps runtime in minutes rather than hours. The tradeoff: the algorithm assumes the true alignment lies within 50 bp of the ungapped diagonal and will miss alignments with more indels than that. Three DP arrays (H, E, F) are maintained in a two-row scheme for space efficiency.
 
----
 
 ## Results
 
@@ -62,7 +55,6 @@ For each query row i, only database columns within [i + diag_offset − W, i + d
 
 **Memory.** With a 4 GB budget and 1 byte per nucleotide (ASCII), the implementation can hold approximately 4 billion nucleotides - enough for the entire human genome (~3.2 Gbp) with index overhead to spare. All 24 human chromosomes fit comfortably. Switching to 2-bit encoding quadruples that capacity to ~16 billion nucleotides. DP arrays during gapped extension use O(2 × 2W × 8 bytes) ≈ 1.6 KB per active extension - negligible at W=50.
 
----
 
 ## Obstacles
 

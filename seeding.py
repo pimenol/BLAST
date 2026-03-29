@@ -1,5 +1,3 @@
-"""Seed generation: build query k-mer index and find seeds in database."""
-
 from collections import defaultdict
 
 # 2-bit encoding: A=0, C=1, G=2, T=3
@@ -7,7 +5,6 @@ _ENCODE = [0] * 256
 for _c, _v in zip(b'AaCcGgTt', [0, 0, 1, 1, 2, 2, 3, 3]):
     _ENCODE[_c] = _v
 
-# Characters that are valid nucleotides
 _IS_VALID = bytearray(256)
 for _c in b'ACGTacgt':
     _IS_VALID[_c] = 1
@@ -62,8 +59,6 @@ def find_seeds(db_seq: bytes, kmer_set: set, kmer_to_positions: dict, k: int) ->
 
 
 def filter_seeds_two_hit(seeds: list, window: int = 40) -> list:
-    """Keep only seeds where two hits fall on the same diagonal within `window` bp.
-    Returns a list of (db_pos, q_pos) representing confirmed seed pairs."""
     if not seeds:
         return []
 
